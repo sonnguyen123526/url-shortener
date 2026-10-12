@@ -1,0 +1,61 @@
+# A StatefulSet (not a Deployment) because Redis owns data: each pod keeps a stable
+# identity and its own PersistentVolumeClaim across restarts.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          # --appendonly yes writes every change to disk under /data. Without it the
+          # PVC stays empty and links disappear when the pod restarts.
+          # $(REDIS_PASSWORD) is expanded by Kubernetes from the env var below.
+          args: ["--appendonly", "yes", "--requirepass", "$(REDIS_PASSWORD)"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-auth
+                  key: password
+          ports:
+            - name: redis
+              containerPort: 6379
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  # One PVC per pod (data-redis-0), kept even if the StatefulSet is deleted.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

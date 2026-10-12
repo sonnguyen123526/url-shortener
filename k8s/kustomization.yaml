@@ -1,0 +1,11 @@
+# Apply everything with: kubectl apply -k k8s/
+# The Redis password Secret is NOT listed here on purpose; create it with `make secret`
+# so it never lives in version control. See redis-secret.example.yaml for its shape.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app-configmap.yaml
+  - app-deployment.yaml
+  - app-service.yaml
+  - redis-service.yaml
+  - redis-statefulset.yaml

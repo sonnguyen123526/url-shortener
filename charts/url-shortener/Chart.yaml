@@ -1,0 +1,6 @@
+apiVersion: v2
+name: url-shortener
+description: A Go URL shortener backed by Redis
+type: application
+version: 0.1.0
+appVersion: "dev"

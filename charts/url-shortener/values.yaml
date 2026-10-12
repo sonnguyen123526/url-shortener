@@ -1,0 +1,51 @@
+# ---- App ----
+replicaCount: 2
+
+image:
+  repository: url-shortener
+  tag: dev
+  # The image is loaded into kind directly, not pulled from a registry.
+  pullPolicy: IfNotPresent
+
+# Base of the short links the API returns. Matches `make helm-port-forward`.
+baseURL: http://localhost:8080
+
+service:
+  type: ClusterIP
+  port: 80
+
+podAnnotations: {}
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    memory: 128Mi
+
+# ---- Redis ----
+redis:
+  image:
+    repository: redis
+    tag: 7.4-alpine
+
+  auth:
+    # Leave empty to generate a random password. It's kept across `helm upgrade`.
+    password: ""
+    # Or use a Secret you created yourself (must have a "password" key).
+    existingSecret: ""
+
+  persistence:
+    size: 1Gi
+    # Empty uses the cluster's default StorageClass (on kind: "standard").
+    storageClass: ""
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+nameOverride: ""
+fullnameOverride: ""

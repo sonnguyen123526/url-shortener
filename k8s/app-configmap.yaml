@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: url-shortener
+data:
+  # "redis" is the Service name; cluster DNS resolves it to the Redis pod.
+  REDIS_ADDR: redis:6379
+  # Matches `make port-forward`. Change it when you add an Ingress.
+  BASE_URL: http://localhost:8080

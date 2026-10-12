@@ -1,0 +1,63 @@
+# A StatefulSet (not a Deployment) because Redis owns data: the pod keeps a stable
+# identity and its own PersistentVolumeClaim across restarts.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "url-shortener.redisName" . }}
+  labels:
+    {{- include "url-shortener.labels" . | nindent 4 }}
+    {{- include "url-shortener.redisSelectorLabels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "url-shortener.redisName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "url-shortener.redisSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ toJson .Values.redis.auth | sha256sum }}
+      labels:
+        {{- include "url-shortener.labels" . | nindent 8 }}
+        {{- include "url-shortener.redisSelectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          # --appendonly yes writes every change to disk under /data.
+          # $(REDIS_PASSWORD) is expanded by Kubernetes from the env var below.
+          args: ["--appendonly", "yes", "--requirepass", "$(REDIS_PASSWORD)"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "url-shortener.redisSecretName" . }}
+                  key: password
+          ports:
+            - name: redis
+              containerPort: 6379
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  # One PVC per pod, kept after `helm uninstall` so data isn't lost by accident.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.redis.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.persistence.size }}

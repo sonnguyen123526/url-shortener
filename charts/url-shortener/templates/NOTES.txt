@@ -1,0 +1,10 @@
+url-shortener is installed in namespace {{ .Release.Namespace }}.
+
+Reach the API:
+  kubectl -n {{ .Release.Namespace }} port-forward service/{{ include "url-shortener.fullname" . }} 8080:{{ .Values.service.port }}
+
+Then:
+  curl -s -X POST localhost:8080/shorten -d '{"url":"https://go.dev"}'
+
+The Redis PVC is kept after `helm uninstall`. Delete it with:
+  kubectl -n {{ .Release.Namespace }} delete pvc data-{{ include "url-shortener.redisName" . }}-0
